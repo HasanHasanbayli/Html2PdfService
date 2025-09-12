@@ -7,7 +7,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 //           Microsoft.Playwright.Program.Main(new[] { "install" });
 //       This will download the required browser binaries (Chromium, Firefox, WebKit).
 //       Without it, Playwright will throw errors when trying to launch a browser.
-Microsoft.Playwright.Program.Main(["intall"]);
+Microsoft.Playwright.Program.Main(["install"]);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
