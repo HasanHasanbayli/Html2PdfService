@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>Demo Document – Playwright PDF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        /* ---------- Base ---------- */
+        :root {
+          --ink: #111;
+          --muted: #6b7280; /* gray-500 */
+          --border: #e5e7eb; /* gray-200 */
+          --brand: #2563eb; /* blue-600 */
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+          margin: 0;
+          font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+          color: var(--ink);
+        }
+    
+        /* ---------- Print Setup ---------- */
+        @page {
+          size: A4;
+          margin: 40px 10px 40px 10px; /* top right bottom left */
+        }
+    
+        @media print {
+          .no-print { display: none !important; }
+          .page {
+            page-break-after: always;
+          }
+          .page:last-child { page-break-after: auto; }
+          a { color: inherit; text-decoration: none; }
+        }
+    
+        /* ---------- Header & Footer (fixed) ---------- */
+        .header, .footer {
+          position: fixed;
+          left: 0; right: 0;
+          color: var(--muted);
+          padding: 6px 20px;
+          font-size: 12px;
+        }
+        .header { top: 0; border-bottom: 1px solid var(--border); }
+        .footer { bottom: 0; border-top: 1px solid var(--border); }
+    
+        .header .row, .footer .row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px;
+          max-width: 750px; margin: 0 auto;
+        }
+    
+        .brand {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-weight: 600; color: var(--brand);
+        }
+        .brand .logo {
+          width: 20px; height: 20px; border-radius: 4px; background: var(--brand);
+        }
+    
+        /* ---------- Page Canvas ---------- */
+        .sheet {
+          max-width: 750px; /* ~ A4 printable width inside margins */
+          margin: 70px auto 60px; /* leave room for header/footer */
+          padding: 16px 20px;
+        }
+    
+        /* ---------- Title & Meta ---------- */
+        h1 {
+          margin: 0 0 8px; font-size: 22px; line-height: 1.25;
+        }
+        .subtitle { color: var(--muted); margin-bottom: 18px; }
+        .meta {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
+          border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+          margin-bottom: 18px;
+          font-size: 12px;
+        }
+        .meta div { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
+        .muted { color: var(--muted); }
+    
+        /* ---------- Content ---------- */
+        h2 { font-size: 16px; margin: 18px 0 8px; }
+        p { margin: 6px 0 10px; }
+        ul { margin: 8px 0 12px 18px; }
+    
+        /* ---------- Table ---------- */
+        table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+        th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 12px; }
+        th { background: #f9fafb; }
+        tfoot td { font-weight: 700; }
+    
+        /* ---------- Signature / Stamp ---------- */
+        .sign-row { display: flex; gap: 24px; margin-top: 22px; }
+        .sign-box { flex: 1; border: 1px dashed var(--border); padding: 12px; min-height: 110px; position: relative; }
+        .sign-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+        .stamp {
+          position: absolute; right: 12px; bottom: 12px;
+          width: 92px; height: 92px; border: 2px solid #1f2937; border-radius: 50%;
+          opacity: .25; display: grid; place-items: center; font-size: 10px; text-align: center;
+        }
+    
+        /* ---------- Page Break Helper ---------- */
+        .page-break { page-break-before: always; margin-top: 70px; }
+    
+        /* ---------- Watermark (optional) ---------- */
+        .watermark {
+          position: fixed; inset: 0; pointer-events: none;
+          display: grid; place-items: center; opacity: 0.07; font-size: 80px; font-weight: 800;
+          transform: rotate(-24deg);
+        }
+    
+        /* ---------- Screen Helper Toolbar ---------- */
+        .toolbar.no-print {
+          position: sticky; top: 0; z-index: 50; background: #111827; color: white;
+          padding: 10px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between;
+          font-size: 14px;
+        }
+        .toolbar button { cursor: pointer; border: 0; padding: 8px 12px; border-radius: 8px; }
+        .toolbar .primary { background: #2563eb; color: white; }
+        .toolbar .ghost { background: #374151; color: white; }
+    </style>
+</head>
+<body>
+<!-- Optional demo toolbar (hidden in PDF/print) -->
+<div class="toolbar no-print">
+    <div style="display:flex; align-items:center; gap:10px">
+        <div class="logo" style="width:22px;height:22px;background:#fff;border-radius:4px"></div>
+        <strong>Demo Document</strong>
+    </div>
+    <div>
+        <button class="primary" onclick="window.print()">Print / Save PDF</button>
+        <button class="ghost" onclick="toggleWatermark()">Toggle Watermark</button>
+    </div>
+</div>
+
+<!-- Fixed header & footer (rendered on each page) -->
+<div class="header">
+    <div class="row">
+        <div class="brand"><span class="logo"></span> Your Company</div>
+        <div class="muted">Document #: <strong>DEM-2025-001</strong></div>
+    </div>
+</div>
+<div class="footer">
+    <div class="row">
+        <div class="muted">Generated by Playwright • PreferCSSPageSize + PrintBackground</div>
+        <div class="muted">Page <span class="pageNumber"></span></div>
+    </div>
+</div>
+
+<!-- Optional big watermark -->
+<div class="watermark" id="wm" hidden>CONFIDENTIAL</div>
+
+<!-- Page 1 -->
+<section class="sheet page">
+    <h1>Demo Contract / Invoice Shell</h1>
+    <div class="subtitle">A minimal HTML you can feed into Playwright's <code>page.pdf()</code>.</div>
+
+    <div class="meta">
+        <div>
+            <div class="muted">Client</div>
+            <div>Acme Logistics LLC</div>
+        </div>
+        <div>
+            <div class="muted">Date</div>
+            <div>2025-09-12</div>
+        </div>
+        <div>
+            <div class="muted">Prepared by</div>
+            <div>SmartDemand • MediOps</div>
+        </div>
+        <div>
+            <div class="muted">Currency</div>
+            <div>USD</div>
+        </div>
+    </div>
+
+    <h2>Scope</h2>
+    <p>
+        This is a printable A4 layout demonstrating fixed header/footer, page breaks, a
+        simple table, and a stamp/signature block you can adapt for invoices, contracts,
+        or customs forms.
+    </p>
+
+    <h2>Line Items</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>#</th>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Price</th>
+            <th>Total</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>1</td>
+            <td>Document preparation service</td>
+            <td>1</td>
+            <td>pkg</td>
+            <td>120.00</td>
+            <td>120.00</td>
+        </tr>
+        <tr>
+            <td>2</td>
+            <td>Stamp & signature verification</td>
+            <td>1</td>
+            <td>pkg</td>
+            <td>30.00</td>
+            <td>30.00</td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>Express processing</td>
+            <td>1</td>
+            <td>pkg</td>
+            <td>25.00</td>
+            <td>25.00</td>
+        </tr>
+        </tbody>
+        <tfoot>
+        <tr>
+            <td colspan="5">Subtotal</td>
+            <td>175.00</td>
+        </tr>
+        <tr>
+            <td colspan="5">VAT (18%)</td>
+            <td>31.50</td>
+        </tr>
+        <tr>
+            <td colspan="5">Total</td>
+            <td>206.50</td>
+        </tr>
+        </tfoot>
+    </table>
+
+    <div class="sign-row">
+        <div class="sign-box">
+            <div class="sign-label">Authorized signature (Company)</div>
+            <div class="stamp">COMPANY\nSTAMP</div>
+        </div>
+        <div class="sign-box">
+            <div class="sign-label">Recipient signature (Client)</div>
+        </div>
+    </div>
+</section>
+
+<!-- Page Break Example -->
+<div class="page-break"></div>
+
+<!-- Page 2 -->
+<section class="sheet page">
+    <h2>Terms & Conditions</h2>
+    <p class="muted">These paragraphs are filler text to demonstrate multi‑page flow, margins, and consistent
+        header/footer rendering.</p>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas fermentum, turpis ut iaculis tincidunt, purus
+        ipsum bibendum quam, ac dictum libero sapien et mi. Curabitur id sapien non velit fermentum volutpat. Integer
+        sodales, odio ac finibus pretium, nibh dui gravida justo, non luctus nisl velit vitae velit. Vestibulum ante
+        ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Aenean id augue risus. Integer tempus,
+        justo at varius tincidunt, nibh mi consequat ipsum, nec sagittis risus urna a mauris. Sed vel lectus euismod,
+        hendrerit massa non, lobortis lacus.</p>
+    <p>Nulla facilisi. Quisque faucibus tristique lorem, sit amet vehicula dui tristique et. Aliquam dapibus dictum
+        vulputate. Nunc dictum dictum nisl, vitae interdum dolor aliquam id. In ultricies, ante id consequat vehicula,
+        justo arcu tristique elit, at cursus felis nulla nec nibh. Vestibulum posuere tortor id nisl rhoncus efficitur.
+        Donec a consequat urna, id imperdiet lacus.</p>
+</section>
+
+<script>
+    // Simple client-side page counter for on-screen preview; Playwright won't auto-fill this.
+    // If you need dynamic page numbers in PDF, consider evaluating JS before PDF or using the header/footer templates.
+    function updatePageNumbers() {
+      const pages = document.querySelectorAll('.page');
+      const n = pages.length;
+      document.querySelectorAll('.footer .pageNumber').forEach(el => el.textContent = `of ${n}`);
+    }
+    function toggleWatermark(){
+      const wm = document.getElementById('wm');
+      wm.hidden = !wm.hidden;
+    }
+    updatePageNumbers();
+</script>
+</body>
+</html>
