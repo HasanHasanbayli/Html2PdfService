@@ -4,57 +4,58 @@ namespace WebAPI;
 
 public class PdfRenderService
 {
-    public async Task<byte[]> RenderPdfAsync(
-        string htmlData,
-        PagePdfOptions? pagePdfOptions = null,
-        BrowserNewContextOptions? browserNewContextOptions = null,
-        PageEmulateMediaOptions? pageEmulateMediaOptions = null,
-        PageSetContentOptions? pageSetContentOptions = null)
+    private T Configure<T>(T options, Action<T>? configure)
     {
-        if (string.IsNullOrWhiteSpace(htmlData))
-            throw new ArgumentException("HTML content must not be null or empty.", nameof(htmlData));
+        configure?.Invoke(options);
 
-        // Ensure we have an options object (Playwright handles null too, but being explicit is clearer)
-        browserNewContextOptions ??= new BrowserNewContextOptions();
-        pageEmulateMediaOptions ??= new PageEmulateMediaOptions { Media = Media.Print };
-        pageSetContentOptions ??= new PageSetContentOptions
-        {
-            // NetworkIdle is often more reliable for PDF rendering if there are external assets
-            WaitUntil = WaitUntilState.NetworkIdle,
-            Timeout = 20_000
-        };
-        pagePdfOptions ??= new PagePdfOptions
+        return options;
+    }
+
+    public async Task<byte[]> RenderPdfAsync(
+        string html,
+        Action<PagePdfOptions>? configurePdf = null,
+        Action<BrowserNewContextOptions>? configureContext = null,
+        Action<PageEmulateMediaOptions>? configureMedia = null,
+        Action<PageSetContentOptions>? configureContent = null)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            throw new ArgumentException("HTML content must not be null or empty.", nameof(html));
+
+        PagePdfOptions pdfOptions = Configure(new PagePdfOptions
         {
             Format = "A4",
             PreferCSSPageSize = true,
             PrintBackground = true,
-            Margin = new Margin
-            {
-                Top = "40px", Bottom = "40px",
-                Left = "10px", Right = "10px"
-            },
+            Margin = new Margin { Top = "40px", Bottom = "40px", Left = "10px", Right = "10px" },
             DisplayHeaderFooter = false
-        };
+        }, configurePdf);
+
+        BrowserNewContextOptions contextOptions = Configure(new BrowserNewContextOptions(), configureContext);
+
+        PageEmulateMediaOptions mediaOptions = Configure(new PageEmulateMediaOptions
+        {
+            Media = Media.Print
+        }, configureMedia);
+
+        PageSetContentOptions contentOptions = Configure(new PageSetContentOptions
+        {
+            WaitUntil = WaitUntilState.NetworkIdle,
+            Timeout = 20_000
+        }, configureContent);
 
         IBrowser browser = await PlaywrightHost.GetBrowserAsync();
 
-        await using IBrowserContext context = await browser.NewContextAsync(browserNewContextOptions);
+        await using IBrowserContext context = await browser.NewContextAsync(contextOptions);
         IPage page = await context.NewPageAsync();
 
         try
         {
-            // Apply print media so @media print CSS is respected
-            await page.EmulateMediaAsync(pageEmulateMediaOptions);
-
-            // Load the provided HTML, wait for network to be idle for more stable output
-            await page.SetContentAsync(htmlData, pageSetContentOptions);
-
-            // Produce the PDF
-            return await page.PdfAsync(pagePdfOptions);
+            await page.EmulateMediaAsync(mediaOptions);
+            await page.SetContentAsync(html, contentOptions);
+            return await page.PdfAsync(pdfOptions);
         }
         finally
         {
-            // Ensure tab is closed even if something fails
             await page.CloseAsync();
         }
     }

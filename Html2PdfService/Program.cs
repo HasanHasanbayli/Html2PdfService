@@ -30,8 +30,9 @@ app.MapGet("/print", async (PdfRenderService pdfRender) =>
 {
     string fileRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "doc.html");
     string htmlData = File.ReadAllText(fileRoot);
-    
-    byte[] pdfBytes = await pdfRender.RenderPdfAsync(htmlData);
+
+    byte[] pdfBytes = await pdfRender.RenderPdfAsync(htmlData,
+        configureMedia: options => options.Media = Media.Print);
 
     return Results.File(pdfBytes, "application/pdf", "document.pdf");
 });
